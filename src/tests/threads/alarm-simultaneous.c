@@ -63,8 +63,11 @@ test_sleep (int thread_cnt, int iterations)
     }
   
   /* Wait long enough for all the threads to finish. */
-  timer_sleep (100 + iterations * 10 + 100);
 
+  
+  timer_sleep (100 + iterations * 10 + 100);
+  
+  
   /* Print completion order. */
   msg ("iteration 0, thread 0: woke up after %d ticks", output[0]);
   for (i = 1; i < test.output_pos - output; i++) 

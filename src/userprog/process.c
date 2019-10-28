@@ -50,6 +50,7 @@ process_execute (const char *file_name)
 static void
 start_process (void *file_name_)
 {
+  printf("\n\n\n...\n\n\n");
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;

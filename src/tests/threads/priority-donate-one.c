@@ -30,36 +30,53 @@ test_priority_donate_one (void)
   ASSERT (thread_get_priority () == PRI_DEFAULT);
 
   lock_init (&lock);
+
   lock_acquire (&lock);
+
   thread_create ("acquire1", PRI_DEFAULT + 1, acquire1_thread_func, &lock);
-  msg ("This thread should have priority %d.  Actual priority: %d.",
+  
+  printf ("(priority-donate-one) This thread should have priority %d.  Actual priority: %d.\n",
        PRI_DEFAULT + 1, thread_get_priority ());
+  
+
   thread_create ("acquire2", PRI_DEFAULT + 2, acquire2_thread_func, &lock);
-  msg ("This thread should have priority %d.  Actual priority: %d.",
+  
+
+  printf ("(priority-donate-one) This thread should have priority %d.  Actual priority: %d.\n",
        PRI_DEFAULT + 2, thread_get_priority ());
+  
+
   lock_release (&lock);
-  msg ("acquire2, acquire1 must already have finished, in that order.");
-  msg ("This should be the last line before finishing this test.");
+
+
+  printf ("(priority-donate-one) acquire2, acquire1 must already have finished, in that order.\n");
+  printf ("(priority-donate-one) This should be the last line before finishing this test.\n");
 }
 
 static void
 acquire1_thread_func (void *lock_) 
 {
   struct lock *lock = lock_;
-
   lock_acquire (lock);
-  msg ("acquire1: got the lock");
+  printf ("(priority-donate-one) %s: got the lock\n", thread_name());
   lock_release (lock);
-  msg ("acquire1: done");
+  printf ("(priority-donate-one) %s: done\n", thread_name());
 }
 
 static void
 acquire2_thread_func (void *lock_) 
 {
   struct lock *lock = lock_;
-
   lock_acquire (lock);
-  msg ("acquire2: got the lock");
+  printf ("(priority-donate-one) %s: got the lock\n", thread_name());
+
+    printf("%s\n%d\n", lock->holder->name, thread_current()->base_priorities_count);
+
+
   lock_release (lock);
-  msg ("acquire2: done");
+  
+  
+  
+  
+  printf ("(priority-donate-one) %s: done\n", thread_name());
 }

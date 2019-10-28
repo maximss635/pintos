@@ -25,17 +25,24 @@ test_priority_donate_lower (void)
 
   lock_init (&lock);
   lock_acquire (&lock);
+
   thread_create ("acquire", PRI_DEFAULT + 10, acquire_thread_func, &lock);
-  msg ("Main thread should have priority %d.  Actual priority: %d.",
+  printf ("(priority-donate-lower) Main thread should have priority %d.  Actual priority: %d.\n",
        PRI_DEFAULT + 10, thread_get_priority ());
 
-  msg ("Lowering base priority...");
+  
+  printf ("(priority-donate-lower) Lowering base priority...\n");
+
+     printf("%d\n", thread_current()->base_priorities_count);
+
+
   thread_set_priority (PRI_DEFAULT - 10);
-  msg ("Main thread should have priority %d.  Actual priority: %d.",
+  printf ("(priority-donate-lower) Main thread should have priority %d.  Actual priority: %d.\n",
        PRI_DEFAULT + 10, thread_get_priority ());
+  
   lock_release (&lock);
-  msg ("acquire must already have finished.");
-  msg ("Main thread should have priority %d.  Actual priority: %d.",
+  printf ("(priority-donate-lower) acquire must already have finished.\n");
+  printf ("(priority-donate-lower) Main thread should have priority %d.  Actual priority: %d.\n",
        PRI_DEFAULT - 10, thread_get_priority ());
 }
 
@@ -45,7 +52,7 @@ acquire_thread_func (void *lock_)
   struct lock *lock = lock_;
 
   lock_acquire (lock);
-  msg ("acquire: got the lock");
+  printf ("(priority-donate-lower) acquire: got the lock\n");
   lock_release (lock);
-  msg ("acquire: done");
+  printf ("(priority-donate-lower) acquire: done\n");
 }

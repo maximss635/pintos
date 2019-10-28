@@ -9,5 +9,8 @@
 
 void test_max_rec_calls(void) 
 {
-  msg("Not implemented.");
+  static int k = 1;
+  msg("call number %d", k);
+  k++;
+  test_max_rec_calls();
 }

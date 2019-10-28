@@ -57,6 +57,16 @@ sema_init (struct semaphore *sema, unsigned value)
    interrupt handler.  This function may be called with
    interrupts disabled, but if it sleeps then the next scheduled
    thread will probably turn interrupts back on. */
+
+
+/* Вниз или "P" операция на семафор. Ждет значения SEMA
+   стать положительным, а затем атомарно уменьшить его.
+
+   Эта функция может спать, поэтому ее нельзя вызывать в
+   обработчик прерываний. Эта функция может быть вызвана с
+   прерывания отключены, но если он спит, то следующий запланированный
+   поток, вероятно, снова включит прерывания. */
+
 void
 sema_down (struct semaphore *sema) 
 {
@@ -67,13 +77,21 @@ sema_down (struct semaphore *sema)
 
   old_level = intr_disable ();
   while (sema->value == 0) 
-    {
-      list_push_back (&sema->waiters, &thread_current ()->elem);
-      thread_block ();
-    }
+  {
+    //MY
+    push_sorted(&sema->waiters, thread_current());
+    //END_MY
+    //было
+    //list_push_back (&sema->waiters, &thread_current ()->elem);
+
+    //printf("sema block %s\n", thread_current()->name);
+    thread_block ();
+
+  }
   sema->value--;
   intr_set_level (old_level);
 }
+
 
 /* Down or "P" operation on a semaphore, but only if the
    semaphore is not already 0.  Returns true if the semaphore is
@@ -105,18 +123,41 @@ sema_try_down (struct semaphore *sema)
    and wakes up one thread of those waiting for SEMA, if any.
 
    This function may be called from an interrupt handler. */
+
+   /* Операция «вверх» или «V» на семафоре. Увеличивает ценность SEMA
+   и просыпается одна нить тех, кто ждет SEMA, если таковые имеются.
+
+   Эта функция может быть вызвана из обработчика прерываний. */
 void
 sema_up (struct semaphore *sema) 
 {
+  sema->value++;
   enum intr_level old_level;
 
   ASSERT (sema != NULL);
 
   old_level = intr_disable ();
   if (!list_empty (&sema->waiters)) 
-    thread_unblock (list_entry (list_pop_front (&sema->waiters),
-                                struct thread, elem));
-  sema->value++;
+  {
+    struct thread* t = list_entry (list_pop_back (&sema->waiters), struct thread, elem);
+
+    //printf("sema unblock %s\n", t->name);
+    thread_unblock (t);
+    
+    
+    //MY
+    if (strncmp(t->name, "idle", 4) && strncmp(t->name, "main", 4) && t->priority > thread_current()->priority)
+    {
+      //printf("<%d > %d>\n", t->priority, thread_current()->priority);
+      thread_yield();
+    }
+    //ENDMY
+  
+
+
+    //SHOW_READY_LIST();
+  }
+  
   intr_set_level (old_level);
 }
 
@@ -192,12 +233,62 @@ lock_init (struct lock *lock)
 void
 lock_acquire (struct lock *lock)
 {
+  //printf("LA\n");
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
+  //my
+  if (lock->holder != NULL && lock->holder->priority != 0 && lock->holder->priority < thread_get_priority())
+  {
+    printf("\nLA change, cur: %s (%d), lock: %x\n", thread_name(), thread_get_priority(), lock);
+    printf("\t%s: base %d, usual %d -> ", lock->holder->name, lock->holder->base_priority[0], lock->holder->priority);
+    
+    lock->holder->base_priorities_count++;
+    printf("%s: PC++\n", lock->holder->name);
+
+    for (int i = 0; i < lock->holder->base_priorities_count; ++i)
+    {
+      lock->holder->base_priority[i + 1] = lock->holder->base_priority[i];
+    }
+    lock->holder->base_priority[0] = lock->holder->priority;
+    lock->holder->priority = thread_get_priority();
+    
+    printf("[");
+    for (int i = 0; i < lock->holder->base_priorities_count; ++i) printf("%d ", lock->holder->base_priority[i]);
+    printf("]\n");
+
+    printf("base %d, usual %d\n\n", lock->holder->base_priority[0], lock->holder->priority);
+
+     
+    prog_lock[lock_count] = lock;
+    lock_count++;
+  
+  }
+  //end my
+
+  //printf("sb\n");
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
+
+  //my
+  bool success = true;
+  for (int i = 0; i < thread_current()->locks_count; ++i)
+  {
+    if (thread_current()->lock[i] == lock)
+    {
+      success = false;
+      break;
+    }
+  }
+
+  if (success)
+  {
+    lock->holder->lock[lock->holder->locks_count] = lock;
+    lock->holder->locks_count++;
+    //printf("Now %s hold %x\n", lock->holder->name, lock->holder->lock[lock->holder->locks_count - 1]);
+  }
+  //end my
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -228,8 +319,51 @@ lock_try_acquire (struct lock *lock)
 void
 lock_release (struct lock *lock) 
 {
+  //printf("%s %s LR\n", thread_name(), lock->holder->name);
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
+
+  //my
+  if (thread_current()->base_priorities_count != 0 || 1)
+  {
+    //printf("LR\n");
+    bool sucess = false;
+    for (int i = 0; i < lock_count; ++i)
+    { 
+      if (prog_lock[i] == lock)
+      {
+        sucess = true;
+        break;
+      }
+    }
+    //printf("{{%d}}\n", sucess);
+    
+    if (sucess)
+    {
+      printf("LR change, cur: %s, lock: %x\n", thread_name(), lock);
+      printf("\t%s: base %d, usual %d -> ", lock->holder->name, lock->holder->base_priority[0], lock->holder->priority);
+
+      lock->holder->priority = lock->holder->base_priority[0];
+
+      for (int i = 0; i < lock->holder->base_priorities_count - 1; ++i)
+      {
+        lock->holder->base_priority[i] = lock->holder->base_priority[i + 1];
+      }
+      lock->holder->base_priority[lock->holder->base_priorities_count - 1] = 0;
+    
+      lock->holder->base_priorities_count--;
+      printf("%s: PC--\n", lock->holder->name);
+      
+
+      printf("[");
+      for (int i = 0; i < lock->holder->base_priorities_count; ++i) printf("%d ", lock->holder->base_priority[i]);
+      printf("]\n");
+
+
+      printf("base %d, usual %d\n\n", lock->holder->base_priority[0], lock->holder->priority);
+    }
+  }
+  //end my
 
   lock->holder = NULL;
   sema_up (&lock->semaphore);
@@ -248,10 +382,14 @@ lock_held_by_current_thread (const struct lock *lock)
 
 /* One semaphore in a list. */
 struct semaphore_elem 
-  {
-    struct list_elem elem;              /* List element. */
-    struct semaphore semaphore;         /* This semaphore. */
-  };
+{
+  struct list_elem elem;              /* List element. */
+  struct semaphore semaphore;         /* This semaphore. */
+
+  //MY
+  int sema_priority;
+  //END MY
+};
 
 /* Initializes condition variable COND.  A condition variable
    allows one piece of code to signal a condition and cooperating
@@ -295,8 +433,46 @@ cond_wait (struct condition *cond, struct lock *lock)
   ASSERT (lock_held_by_current_thread (lock));
   
   sema_init (&waiter.semaphore, 0);
-  list_push_back (&cond->waiters, &waiter.elem);
+  
+  //MY
+  waiter.sema_priority = thread_current()->priority;
+
+  struct list* list = &cond->waiters;
+  struct list_elem* added = &waiter.elem;
+  
+  struct list_elem* p;
+  for (p = list->head.next; p != &list->tail; p = p->next)
+  {
+    struct semaphore_elem* i_sema = list_entry(p, struct semaphore_elem, elem);
+    if (i_sema->sema_priority > waiter.sema_priority)
+    {
+      break;
+    }
+  }
+
+  if (p == &list->tail)
+  {
+    list_push_back(list, added);
+  }
+  else
+  {
+    list_insert(p, added);
+  }
+  //END My
+
+  for (struct list_elem* w = cond->waiters.head.next; w != &cond->waiters.tail; w = w->next)
+  {
+    struct semaphore_elem* k;
+    k = list_entry(w, struct semaphore_elem, elem);
+    //printf("%d ", k->sema_priority);
+  }
+  //printf("\n");
+
+  //было:
+  //list_push_back (&cond->waiters, &waiter.elem);
+  
   lock_release (lock);
+  //printf("S B\n");
   sema_down (&waiter.semaphore);
   lock_acquire (lock);
 }
@@ -317,8 +493,13 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
   ASSERT (lock_held_by_current_thread (lock));
 
   if (!list_empty (&cond->waiters)) 
-    sema_up (&list_entry (list_pop_front (&cond->waiters),
-                          struct semaphore_elem, elem)->semaphore);
+  {
+    struct semaphore_elem* elem = list_entry (list_pop_back (&cond->waiters), struct semaphore_elem, elem);
+    struct semaphore* sema = &elem->semaphore;
+    //printf("%d\n", elem->sema_priority);
+    sema_up (sema);
+
+  }
 }
 
 /* Wakes up all threads, if any, waiting on COND (protected by

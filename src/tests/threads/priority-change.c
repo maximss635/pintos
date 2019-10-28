@@ -2,6 +2,10 @@
    longer the highest-priority thread in the system causes it to
    yield immediately. */
 
+/* Проверяет, что понижение приоритета потока, чтобы он не 
+   чем длиннее поток с наивысшим приоритетом в системе, тем
+   уступить немедленно. */
+
 #include <stdio.h>
 #include "tests/threads/tests.h"
 #include "threads/init.h"
@@ -12,13 +16,15 @@ static thread_func changing_thread;
 void
 test_priority_change (void) 
 {
-  /* This test does not work with the MLFQS. */
+  // This test does not work with the MLFQS.
   ASSERT (!thread_mlfqs);
-
+  
   msg ("Creating a high-priority thread 2.");
   thread_create ("thread 2", PRI_DEFAULT + 1, changing_thread, NULL);
+  
   msg ("Thread 2 should have just lowered its priority.");
   thread_set_priority (PRI_DEFAULT - 2);
+  
   msg ("Thread 2 should have just exited.");
 }
 

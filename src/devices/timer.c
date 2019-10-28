@@ -86,14 +86,79 @@ timer_elapsed (int64_t then)
 
 /* Sleeps for approximately TICKS timer ticks.  Interrupts must
    be turned on. */
-void
-timer_sleep (int64_t ticks) 
-{
-  int64_t start = timer_ticks ();
+#include <stdlib.h>
 
+struct thread** SLEEP_MASSIVE = NULL;
+int SLEEP_MASSIVE_SIZE = 0;
+
+struct thread** my_realloc(struct thread** old_massive, int new_size)
+        //Не доделанная, работает только в том случае, когда мы увеличиваем массив на единицу
+{
+  struct thread** tmp = (struct thread**)malloc((new_size - 1) * sizeof(struct thread*));
+  for (int i = 0; i < new_size - 1; ++i)
+  {
+    tmp[i] = old_massive[i];
+  }
+  free(old_massive);
+  old_massive = NULL;
+  old_massive = (struct thread**)malloc(new_size * sizeof(struct thread*));
+  for (int i = 0; i < new_size - 1; ++i)
+  {
+    old_massive[i] = tmp[i];
+  }
+  free(tmp);
+  tmp = NULL;
+  return old_massive;
+}
+
+void ADD_TO_MASSIVE (struct thread* NEW_THREAD)
+{
+  if (SLEEP_MASSIVE_SIZE == 0)
+  {
+    SLEEP_MASSIVE_SIZE++;
+    SLEEP_MASSIVE = (struct thread**)malloc(sizeof(struct thread*));
+    *SLEEP_MASSIVE = NEW_THREAD;
+  }
+  else
+  {
+    SLEEP_MASSIVE_SIZE++;
+    SLEEP_MASSIVE = my_realloc(SLEEP_MASSIVE, SLEEP_MASSIVE_SIZE);
+
+    int i = SLEEP_MASSIVE_SIZE - 2;
+    while (i >= 0 && SLEEP_MASSIVE[i]->time < NEW_THREAD->time)
+    {
+      SLEEP_MASSIVE[i + 1] = SLEEP_MASSIVE[i];
+      i--;
+    }
+    SLEEP_MASSIVE[i + 1] = NEW_THREAD;
+  }
+}
+
+void
+timer_sleep (int64_t ticks)
+{
+  //printf("%s call timer_sleep\n", thread_name());
   ASSERT (intr_get_level () == INTR_ON);
-  while (timer_elapsed (start) < ticks) 
-    thread_yield ();
+
+  if (ticks > 0)
+  {
+    int64_t start = timer_ticks ();
+    enum intr_level old_level = intr_disable();
+    struct thread* NEW_THREAD = thread_current ();
+
+    NEW_THREAD->time = ticks + start;
+    //printf ("ADDED THREAD: {name: \"%s\", wake_up_time: %d, sleep_time: %d}\n",
+      //NEW_THREAD->name, NEW_THREAD->time, ticks);
+    
+  
+    ADD_TO_MASSIVE (NEW_THREAD);
+
+    thread_block();
+    
+    intr_set_level(old_level);
+
+  }
+
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -172,6 +237,18 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
+
+  while ((SLEEP_MASSIVE_SIZE > 0) && (SLEEP_MASSIVE[SLEEP_MASSIVE_SIZE-1]->time <= ticks))
+  {
+    /*printf ("\nDELETED: {name: \"%s\", wake_up_time: %d}\n",
+      SLEEP_MASSIVE[SLEEP_MASSIVE_SIZE-1]->name,
+      SLEEP_MASSIVE[SLEEP_MASSIVE_SIZE-1]->time,
+      SLEEP_MASSIVE[SLEEP_MASSIVE_SIZE-1]->status);*/
+
+
+    thread_unblock (SLEEP_MASSIVE[SLEEP_MASSIVE_SIZE - 1]);
+    SLEEP_MASSIVE_SIZE--;
+  }
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer

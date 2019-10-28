@@ -15,37 +15,37 @@
 .globl switch_threads
 .func switch_threads
 switch_threads:
-	# Save caller's register state.
+	# ;Save caller's register state.
 	#
-	# Note that the SVR4 ABI allows us to destroy %eax, %ecx, %edx,
-	# but requires us to preserve %ebx, %ebp, %esi, %edi.  See
-	# [SysV-ABI-386] pages 3-11 and 3-12 for details.
+	# ;Note that the SVR4 ABI allows us to destroy %eax, %ecx, %edx,
+	# ;but requires us to preserve %ebx, %ebp, %esi, %edi.  See
+	# ;[SysV-ABI-386] pages 3-11 and 3-12 for details.
 	#
-	# This stack frame must match the one set up by thread_create()
-	# in size.
+	# ;This stack frame must match the one set up by thread_create()
+	# ;in size.
 	pushl %ebx
 	pushl %ebp
 	pushl %esi
 	pushl %edi
 
-	# Get offsetof (struct thread, stack).
+	# ;Get offsetof (struct thread, stack).
 .globl thread_stack_ofs
 	mov thread_stack_ofs, %edx
 
-	# Save current stack pointer to old thread's stack, if any.
+	# ;Save current stack pointer to old thread's stack, if any.
 	movl SWITCH_CUR(%esp), %eax
 	movl %esp, (%eax,%edx,1)
 
-	# Restore stack pointer from new thread's stack.
+	# ;Restore stack pointer from new thread's stack.
 	movl SWITCH_NEXT(%esp), %ecx
 	movl (%ecx,%edx,1), %esp
 
-	# Restore caller's register state.
+	# ;Restore caller's register state.
 	popl %edi
 	popl %esi
 	popl %ebp
 	popl %ebx
-        ret
+    ret
 .endfunc
 
 .globl switch_entry

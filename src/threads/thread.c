@@ -15,6 +15,9 @@
 #include "userprog/process.h"
 #endif
 
+
+#include <stdlib.h>
+
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
@@ -22,10 +25,14 @@
 
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
+/* Список процессов в состоянии THREAD_READY, то есть процессов
+   которые готовы к запуску, но на самом деле не работают. */
 static struct list ready_list;
 
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
+/*Список всех процессов. Процессы добавлены в этот список
+   когда они впервые запланированы и удалены, когда они выходят.*/
 static struct list all_list;
 
 /* Idle thread. */
@@ -36,6 +43,30 @@ static struct thread *initial_thread;
 
 /* Lock used by allocate_tid(). */
 static struct lock tid_lock;
+
+//my func
+void SHOW_ALL_LIST ()
+{
+  printf("ALL_LIST: ");
+  for (struct list_elem* p = (all_list.head.next); p != &(all_list.tail); p = p->next)
+  {
+    //printf("%x ", p);
+    printf("\"%s\"(%d) ", list_entry(p, struct thread, allelem)->name, list_entry(p, struct thread, allelem)->priority);
+  }
+  printf("\n\n");
+}
+
+void SHOW_READY_LIST ()
+{
+  printf("READY LIST: ");
+  for (struct list_elem* p = ready_list.head.next; p != &(ready_list.tail); p = p->next)
+    printf("\"%s\" ", list_entry(p, struct thread, elem)->name);
+    
+  printf("\n");
+}
+
+//end of my func
+
 
 /* Stack frame for kernel_thread(). */
 struct kernel_thread_frame 
@@ -84,6 +115,21 @@ static tid_t allocate_tid (void);
 
    It is not safe to call thread_current() until this function
    finishes. */
+
+   /*Инициализирует систему потоков, трансформируя код
+   это в настоящее время сталкивается с потоком. Это не может работать в
+   Вообщем и в этом случае это возможно только потому, что loader.S
+   был осторожен, чтобы поместить дно стека на границе страницы.
+
+   Также инициализирует очередь выполнения и блокировку tid.
+
+   После вызова этой функции обязательно инициализируйте страницу
+   Распределитель, прежде чем пытаться создать какие-либо потоки с
+   thread_create ().
+
+   Вызывать thread_current () до этой функции небезопасно
+   отделки.
+   */
 void
 thread_init (void) 
 {
@@ -102,19 +148,23 @@ thread_init (void)
 
 /* Starts preemptive thread scheduling by enabling interrupts.
    Also creates the idle thread. */
+   
+   /* Запускает упреждающее планирование потоков, разрешая прерывания.
+   Также создает холостой поток. */
 void
 thread_start (void) 
 {
   /* Create the idle thread. */
   struct semaphore idle_started;
   sema_init (&idle_started, 0);
+  
   thread_create ("idle", PRI_MIN, idle, &idle_started);
 
   /* Start preemptive thread scheduling. */
-  intr_enable ();
+  intr_enable ();                                            
 
   /* Wait for the idle thread to initialize idle_thread. */
-  sema_down (&idle_started);
+  sema_down (&idle_started);     
 }
 
 /* Called by the timer interrupt handler at each timer tick.
@@ -162,10 +212,78 @@ thread_print_stats (void)
    The code provided sets the new thread's `priority' member to
    PRIORITY, but no actual priority scheduling is implemented.
    Priority scheduling is the goal of Problem 1-3. */
+
+
+/* Создает новый поток ядра с именем NAME с заданным начальным значением
+   PRIORITY, который выполняет FUNCTION, передавая AUX в качестве аргумента,
+   и добавляет его в готовую очередь. Возвращает идентификатор потока
+   для нового потока или TID_ERROR, если создание не удалось.
+
+   Если вызывается thread_start (), то новый поток может быть
+   запланировано до возвращения thread_create (). Это может даже выйти
+   до того, как thread_create () вернется. Наоборот, оригинал
+   поток может работать в течение любого количества времени, прежде чем новый поток
+   по расписанию. Используйте семафор или другую форму
+   синхронизация, если вам нужно обеспечить порядок.
+
+   Предоставленный код устанавливает приоритетный элемент нового потока в
+   PRIORITY, но фактическое планирование приоритетов не выполняется.
+   Приоритетное планирование является целью Задачи 1-3. */
+
+/*/AUDIT:
+struct node {
+  struct node *pNext, *pPrevious;
+  struct thread* thread;
+
+  //char name[20];
+  //int time;
+  //tid_t tid;
+};// *pEnd = NULL, *pBegin = NULL;
+
+void ADD_TO_AUDIT(const char* name, int time, int tid)
+{
+  if (pBegin == NULL)
+  {
+    pBegin = (struct node*)malloc(sizeof(struct node));
+    pEnd = pBegin;
+    
+    pBegin->pNext = pBegin->pPrevious = NULL;
+    
+    strlcpy(pBegin->name, name, strlen(name) + 1);
+    pBegin->time = time;
+    pBegin->tid = tid;
+
+    return;
+  }
+
+  struct node* NEW_NODE = (struct node*)malloc(sizeof(struct node));
+
+  strlcpy(NEW_NODE->name, name, strlen(name) + 1);
+  NEW_NODE->time = time;
+  NEW_NODE->tid = tid;
+
+  NEW_NODE->pNext = NULL;
+  NEW_NODE->pPrevious = pEnd;
+  
+  pEnd->pNext = NEW_NODE;
+  pEnd = NEW_NODE;
+}
+
+void PRINT_AUDIT()
+{
+
+  for (struct node* p = pBegin; p != NULL; p = p->pNext)
+  {
+    printf("%s - ", p->name, p->time, p->tid);
+  }
+  printf("\n");
+}*/
+
 tid_t
 thread_create (const char *name, int priority,
                thread_func *function, void *aux) 
 {
+  //printf("thread_create \"%s\"\n", name);
   struct thread *t;
   struct kernel_thread_frame *kf;
   struct switch_entry_frame *ef;
@@ -182,6 +300,7 @@ thread_create (const char *name, int priority,
 
   /* Initialize thread. */
   init_thread (t, name, priority);
+  
   tid = t->tid = allocate_tid ();
 
   /* Prepare thread for first run by initializing its stack.
@@ -209,6 +328,18 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
+  //ADD_TO_AUDIT (name, timer_ticks(), tid);
+  //PRINT_AUDIT ();
+  
+  //MY
+  if (strncmp(t->name, "idle", 4) && strncmp(t->name, "main", 4) && t->priority > running_thread()->priority)
+  {
+    //printf("<%d > %d>\n", t->priority, running_thread()->priority);
+    thread_yield();
+  }
+  //ENDMY
+
+
   return tid;
 }
 
@@ -218,14 +349,31 @@ thread_create (const char *name, int priority,
    This function must be called with interrupts turned off.  It
    is usually a better idea to use one of the synchronization
    primitives in synch.h. */
+
+   /* Переводит текущий поток в спящий режим. Это не будет запланировано
+   снова, пока не проснется thread_unblock ().
+
+   Эта функция должна вызываться с отключенными прерываниями. Это
+   обычно лучше использовать одну из синхронизаций
+   примитивы в synch.h. */
 void
 thread_block (void) 
 {
+  //printf("Before blocking: \n");
+  //SHOW_READY_LIST();
+
+  //однажды когда раскомментировал строчку ниже я вылетал из-за asserta
+  //printf("block: %s\n", running_thread()->name);
   ASSERT (!intr_context ());
   ASSERT (intr_get_level () == INTR_OFF);
 
   thread_current ()->status = THREAD_BLOCKED;
   schedule ();
+
+
+
+  //printf("After blocking: \n");
+  //SHOW_READY_LIST();
 }
 
 /* Transitions a blocked thread T to the ready-to-run state.
@@ -236,18 +384,37 @@ thread_block (void)
    be important: if the caller had disabled interrupts itself,
    it may expect that it can atomically unblock a thread and
    update other data. */
+#include <string.h>
+
 void
 thread_unblock (struct thread *t) 
 {
+  //printf("\nunblock: %s\n", t->name);
   enum intr_level old_level;
 
   ASSERT (is_thread (t));
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+
+  //MY
+  if (strncmp(t->name, "main", 4))
+  { 
+    push_sorted (&ready_list, t);
+  }
+  else
+  {
+    list_push_front (&ready_list, &t->elem);
+  }
+  //ENDMY
+  //было:
+  //list_push_back (&ready_list, &t->elem);
+  
+  //SHOW_READY_LIST();
+
   t->status = THREAD_READY;
   intr_set_level (old_level);
+  
 }
 
 /* Returns the name of the running thread. */
@@ -263,6 +430,7 @@ thread_name (void)
 struct thread *
 thread_current (void) 
 {
+  
   struct thread *t = running_thread ();
   
   /* Make sure T is really a thread.
@@ -288,6 +456,10 @@ thread_tid (void)
 void
 thread_exit (void) 
 {
+  //printf("thread kill: %s\n", thread_current()->name);
+  //ADD_TO_AUDIT (thread_current()->name, timer_ticks(), thread_current()->tid);
+  //PRINT_AUDIT ();
+
   ASSERT (!intr_context ());
 
 #ifdef USERPROG
@@ -309,6 +481,9 @@ thread_exit (void)
 void
 thread_yield (void) 
 {
+  //printf("TY\n");
+  //SHOW_READY_LIST();
+
   struct thread *cur = thread_current ();
   enum intr_level old_level;
   
@@ -316,10 +491,22 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+    push_sorted (&ready_list, cur);         //тут раньше было list_push_back();
+
+  //SHOW_READY_LIST();
+  
+  
   cur->status = THREAD_READY;
+
+  
   schedule ();
+
   intr_set_level (old_level);
+
+  //SHOW_READY_LIST();
+  //printf("now cur: %s\n", thread_current()->name);
+  //printf("...........\n\n");
+
 }
 
 /* Invoke function 'func' on all threads, passing along 'aux'.
@@ -343,13 +530,59 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
+  //printf("base: %d, usual: %d\n", thread_current()->base_priority, thread_current()->priority);
+
+  if (thread_current()->base_priorities_count != 0)
+  {
+    printf("base priority: %d -> %d\n", thread_current()->base_priority, new_priority);
+    thread_current ()->base_priority[thread_current ()->base_priorities_count - 1] = new_priority;
+    return;
+  }
+  else
+  {
+    //printf("usual priority: %d -> %d\n", thread_get_priority(), new_priority);
+    thread_current ()->priority = new_priority;
+  }
+
+  //MY
+  //мы измменили приоритет последнего процесса в all list - у него новое место в этом листе
+  struct list_elem* p = all_list.tail.prev;
+  while(p != NULL && list_entry(p, struct thread, allelem)->priority < list_entry(p->prev, struct thread, allelem)->priority)
+  {
+    struct list_elem* a = p->prev;
+    
+    if (a == NULL || a->prev == NULL || p->next == NULL)
+      break;
+
+    struct list_elem *saved = a->prev;
+    a->prev->next = p;
+    a->prev = p;
+    a->next = p->next;
+
+    p->prev = saved;
+    p->next = a;
+    a->next->prev = a;
+  }
+  //ENDMY
+
+  //SHOW_ALL_LIST();
+  //SHOW_READY_LIST();
+
+  //MY
+  if (!list_empty(&ready_list) && list_entry(ready_list.tail.prev, struct thread, elem)->priority > new_priority)
+  {
+    thread_yield();
+  }
+  //ENDMY
+
+  
+  //printf("[current: %s (%d)]\n", running_thread()->name, running_thread()->priority);
 }
 
 /* Returns the current thread's priority. */
 int
 thread_get_priority (void) 
-{
+{ 
   return thread_current ()->priority;
 }
 
@@ -404,6 +637,7 @@ idle (void *idle_started_ UNUSED)
     {
       /* Let someone else run. */
       intr_disable ();
+      //printf("HERE\n");
       thread_block ();
 
       /* Re-enable interrupts and wait for the next one.
@@ -454,11 +688,50 @@ is_thread (struct thread *t)
   return t != NULL && t->magic == THREAD_MAGIC;
 }
 
+void push_sorted(struct list* list, struct thread* t)
+{
+
+  struct list_elem* p;
+  struct thread* process;
+  for (p = (list->head.next); p != &list->tail; p = p->next)
+  {
+    if (list == &all_list)
+      process = list_entry(p, struct thread, allelem);
+    else
+      process = list_entry(p, struct thread, elem);
+    
+    if (t->priority <= process->priority)
+    {
+      break;
+    }
+  }
+ 
+  struct list_elem* added_elem;
+  if (list == &all_list)
+  {
+    added_elem = &t->allelem;
+  }
+  else
+    added_elem = &t->elem;
+  
+  if (p == NULL)
+  {
+    list_push_back (list, added_elem);
+  }
+  else
+  {
+    list_insert(p, added_elem);
+  }
+}
+
 /* Does basic initialization of T as a blocked thread named
    NAME. */
+
 static void
 init_thread (struct thread *t, const char *name, int priority)
 {
+  //printf("\ninit_thread \"%s\" (%d)\n", name, priority);
+  
   ASSERT (t != NULL);
   ASSERT (PRI_MIN <= priority && priority <= PRI_MAX);
   ASSERT (name != NULL);
@@ -469,7 +742,27 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
-  list_push_back (&all_list, &t->allelem);
+
+  //my
+  t->base_priorities_count = 0;
+  for (int i = 0; i < 10; ++i)
+    t->base_priority[i] = 0;
+
+  t->locks_count = 0;
+  for (int i = 0; i < 10; ++i)
+    t->lock[i] = NULL;
+  //end my
+  
+  
+  //MY
+  push_sorted (&all_list, t);
+  //END_MY
+  //было тут:
+  //list_push_back (&all_list, &t->allelem);
+  
+
+  //SHOW_ALL_LIST();
+  //printf("cur: %s (%d)\n", thread_current()->name, running_thread()->priority);
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
@@ -490,14 +783,16 @@ alloc_frame (struct thread *t, size_t size)
    empty.  (If the running thread can continue running, then it
    will be in the run queue.)  If the run queue is empty, return
    idle_thread. */
+
 static struct thread *
 next_thread_to_run (void) 
 {
   if (list_empty (&ready_list))
     return idle_thread;
   else
-    return list_entry (list_pop_front (&ready_list), struct thread, elem);
+    return list_entry (list_pop_back (&ready_list), struct thread, elem);
 }
+
 
 /* Completes a thread switch by activating the new thread's page
    tables, and, if the previous thread is dying, destroying it.
@@ -515,6 +810,23 @@ next_thread_to_run (void)
 
    After this function and its caller returns, the thread switch
    is complete. */
+
+   /* Завершает переключение потока, активируя страницу нового потока
+   таблицы, и, если предыдущий поток умирает, уничтожить его.
+
+   При вызове этой функции мы просто переключились с потока
+   PREV, новый поток уже запущен, и прерывания
+   все еще отключен. Эта функция обычно вызывается
+   thread_schedule () как его последнее действие перед возвратом, но
+   при первом планировании потока он вызывается
+   switch_entry () (см. switch.S).
+
+   Вызывать printf () небезопасно, пока не переключится поток
+   полный. На практике это означает, что printf () должны быть
+   добавлено в конце функции.
+
+   После того, как эта функция и ее вызывающая сторона возвращаются, переключение потока
+   завершено.*/
 void
 thread_schedule_tail (struct thread *prev)
 {
@@ -538,11 +850,17 @@ thread_schedule_tail (struct thread *prev)
      pull out the rug under itself.  (We don't free
      initial_thread because its memory was not obtained via
      palloc().) */
+
+  /* Если поток, с которого мы переключились, умирает, уничтожьте его структуру
+     нить. Это должно произойти поздно, чтобы thread_exit () не
+     вытащите коврик под себя. (Мы не свободны
+     initial_thread, потому что его память не была получена через
+     palloc ().) */
   if (prev != NULL && prev->status == THREAD_DYING && prev != initial_thread) 
-    {
-      ASSERT (prev != cur);
-      palloc_free_page (prev);
-    }
+  {
+    ASSERT (prev != cur);
+    palloc_free_page (prev);
+  }
 }
 
 /* Schedules a new process.  At entry, interrupts must be off and
@@ -552,12 +870,24 @@ thread_schedule_tail (struct thread *prev)
 
    It's not safe to call printf() until thread_schedule_tail()
    has completed. */
+/*Планирует новый процесс. При входе прерывания должны быть отключены и
+   состояние запущенного процесса должно быть изменено с
+   бежать в какое-то другое состояние. Эта функция находит другую
+   поток для запуска и переключается на него.
+
+   Не безопасно вызывать printf (), пока thread_schedule_tail ()
+   завершено.*/
+
+
+
 static void
 schedule (void) 
 {
   struct thread *cur = running_thread ();
   struct thread *next = next_thread_to_run ();
   struct thread *prev = NULL;
+
+  
 
   ASSERT (intr_get_level () == INTR_OFF);
   ASSERT (cur->status != THREAD_RUNNING);
@@ -566,12 +896,14 @@ schedule (void)
   if (cur != next)
     prev = switch_threads (cur, next);
   thread_schedule_tail (prev);
+  
 }
 
 /* Returns a tid to use for a new thread. */
 static tid_t
 allocate_tid (void) 
 {
+  //printf("allocate_tid\n");
   static tid_t next_tid = 1;
   tid_t tid;
 
