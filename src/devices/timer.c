@@ -7,7 +7,7 @@
 #include "threads/interrupt.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
-  
+
 /* See [8254] for hardware details of the 8254 timer chip. */
 
 #if TIMER_FREQ < 19
@@ -125,7 +125,7 @@ void ADD_TO_MASSIVE (struct thread* NEW_THREAD)
     SLEEP_MASSIVE = my_realloc(SLEEP_MASSIVE, SLEEP_MASSIVE_SIZE);
 
     int i = SLEEP_MASSIVE_SIZE - 2;
-    while (i >= 0 && SLEEP_MASSIVE[i]->time < NEW_THREAD->time)
+    while (i >= 0 && SLEEP_MASSIVE[i]->wake_time < NEW_THREAD->wake_time)
     {
       SLEEP_MASSIVE[i + 1] = SLEEP_MASSIVE[i];
       i--;
@@ -137,7 +137,6 @@ void ADD_TO_MASSIVE (struct thread* NEW_THREAD)
 void
 timer_sleep (int64_t ticks)
 {
-  //printf("%s call timer_sleep\n", thread_name());
   ASSERT (intr_get_level () == INTR_ON);
 
   if (ticks > 0)
@@ -146,7 +145,7 @@ timer_sleep (int64_t ticks)
     enum intr_level old_level = intr_disable();
     struct thread* NEW_THREAD = thread_current ();
 
-    NEW_THREAD->time = ticks + start;
+    NEW_THREAD->wake_time = ticks + start;
     //printf ("ADDED THREAD: {name: \"%s\", wake_up_time: %d, sleep_time: %d}\n",
       //NEW_THREAD->name, NEW_THREAD->time, ticks);
     
@@ -238,7 +237,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
   ticks++;
   thread_tick ();
 
-  while ((SLEEP_MASSIVE_SIZE > 0) && (SLEEP_MASSIVE[SLEEP_MASSIVE_SIZE-1]->time <= ticks))
+  while ((SLEEP_MASSIVE_SIZE > 0) && (SLEEP_MASSIVE[SLEEP_MASSIVE_SIZE-1]->wake_time <= ticks))
   {
     /*printf ("\nDELETED: {name: \"%s\", wake_up_time: %d}\n",
       SLEEP_MASSIVE[SLEEP_MASSIVE_SIZE-1]->name,

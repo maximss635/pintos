@@ -50,8 +50,8 @@ void SHOW_ALL_LIST ()
   printf("ALL_LIST: ");
   for (struct list_elem* p = (all_list.head.next); p != &(all_list.tail); p = p->next)
   {
-    //printf("%x ", p);
-    printf("\"%s\"(%d) ", list_entry(p, struct thread, allelem)->name, list_entry(p, struct thread, allelem)->priority);
+    struct thread* thread = list_entry(p, struct thread, allelem);
+    printf("\"%s\"(%d) ", thread->name, thread->priority);
   }
   printf("\n\n");
 }
@@ -60,11 +60,12 @@ void SHOW_READY_LIST ()
 {
   printf("READY LIST: ");
   for (struct list_elem* p = ready_list.head.next; p != &(ready_list.tail); p = p->next)
-    printf("\"%s\" ", list_entry(p, struct thread, elem)->name);
-    
+  {
+    struct thread* thread = list_entry(p, struct thread, elem);
+    printf("\"%s\"(%d) ", thread->name, thread->priority);
+  }  
   printf("\n");
 }
-
 //end of my func
 
 
@@ -283,7 +284,6 @@ tid_t
 thread_create (const char *name, int priority,
                thread_func *function, void *aux) 
 {
-  //printf("thread_create \"%s\"\n", name);
   struct thread *t;
   struct kernel_thread_frame *kf;
   struct switch_entry_frame *ef;
@@ -390,6 +390,7 @@ void
 thread_unblock (struct thread *t) 
 {
   //printf("\nunblock: %s\n", t->name);
+
   enum intr_level old_level;
 
   ASSERT (is_thread (t));
@@ -414,7 +415,6 @@ thread_unblock (struct thread *t)
 
   t->status = THREAD_READY;
   intr_set_level (old_level);
-  
 }
 
 /* Returns the name of the running thread. */
@@ -532,15 +532,15 @@ thread_set_priority (int new_priority)
 {
   //printf("base: %d, usual: %d\n", thread_current()->base_priority, thread_current()->priority);
 
-  if (thread_current()->base_priorities_count != 0)
+  if (thread_current()->base_priority != -1)
   {
-    printf("base priority: %d -> %d\n", thread_current()->base_priority, new_priority);
-    thread_current ()->base_priority[thread_current ()->base_priorities_count - 1] = new_priority;
+    //printf("%s base priority: %d -> %d\n", thread_name(), thread_current()->base_priority[0], new_priority);
+    thread_current ()->base_priority = new_priority;
     return;
   }
   else
   {
-    //printf("usual priority: %d -> %d\n", thread_get_priority(), new_priority);
+    //printf("%s usual priority: %d -> %d\n", thread_get_priority(), new_priority);
     thread_current ()->priority = new_priority;
   }
 
@@ -563,20 +563,12 @@ thread_set_priority (int new_priority)
     p->next = a;
     a->next->prev = a;
   }
-  //ENDMY
 
-  //SHOW_ALL_LIST();
-  //SHOW_READY_LIST();
-
-  //MY
   if (!list_empty(&ready_list) && list_entry(ready_list.tail.prev, struct thread, elem)->priority > new_priority)
   {
     thread_yield();
   }
   //ENDMY
-
-  
-  //printf("[current: %s (%d)]\n", running_thread()->name, running_thread()->priority);
 }
 
 /* Returns the current thread's priority. */
@@ -730,7 +722,6 @@ void push_sorted(struct list* list, struct thread* t)
 static void
 init_thread (struct thread *t, const char *name, int priority)
 {
-  //printf("\ninit_thread \"%s\" (%d)\n", name, priority);
   
   ASSERT (t != NULL);
   ASSERT (PRI_MIN <= priority && priority <= PRI_MAX);
@@ -744,13 +735,9 @@ init_thread (struct thread *t, const char *name, int priority)
   t->magic = THREAD_MAGIC;
 
   //my
-  t->base_priorities_count = 0;
-  for (int i = 0; i < 10; ++i)
-    t->base_priority[i] = 0;
-
-  t->locks_count = 0;
-  for (int i = 0; i < 10; ++i)
-    t->lock[i] = NULL;
+  t->blocked_by = NULL;
+  t->blocked_by_sema = NULL;
+  t->base_priority = -1;
   //end my
   
   

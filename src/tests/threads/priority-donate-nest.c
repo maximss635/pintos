@@ -50,7 +50,7 @@ test_priority_donate_nest (void)
 
   thread_create ("high", PRI_DEFAULT + 2, high_thread_func, &b);
   thread_yield ();
-  printf ("(priority-donate-nest) low thread should have priority %d.  Actual priority: %d.\n",
+  printf ("(priority-donate-nest) Low thread should have priority %d.  Actual priority: %d.\n",
        PRI_DEFAULT + 2, thread_get_priority ());
 
   lock_release (&a);
@@ -66,6 +66,7 @@ medium_thread_func (void *locks_)
   struct locks *locks = locks_;
 
   lock_acquire (locks->b);
+//printf("{%s %d}\n", locks->a->holder->name, locks->a->holder->status);
   lock_acquire (locks->a);
 
   msg ("Medium thread should have priority %d.  Actual priority: %d.",
@@ -86,6 +87,8 @@ static void
 high_thread_func (void *lock_) 
 {
   struct lock *lock = lock_;
+
+//printf("{%s %d}\n", lock->holder->name, lock->holder->status);
 
   lock_acquire (lock);
   msg ("High thread got the lock.");

@@ -44,13 +44,14 @@ test_priority_donate_one (void)
 
   printf ("(priority-donate-one) This thread should have priority %d.  Actual priority: %d.\n",
        PRI_DEFAULT + 2, thread_get_priority ());
-  
 
+ 
   lock_release (&lock);
 
 
   printf ("(priority-donate-one) acquire2, acquire1 must already have finished, in that order.\n");
   printf ("(priority-donate-one) This should be the last line before finishing this test.\n");
+  
 }
 
 static void
@@ -70,13 +71,7 @@ acquire2_thread_func (void *lock_)
   lock_acquire (lock);
   printf ("(priority-donate-one) %s: got the lock\n", thread_name());
 
-    printf("%s\n%d\n", lock->holder->name, thread_current()->base_priorities_count);
-
-
+  
   lock_release (lock);
-  
-  
-  
-  
   printf ("(priority-donate-one) %s: done\n", thread_name());
 }

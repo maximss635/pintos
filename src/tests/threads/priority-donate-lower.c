@@ -33,16 +33,17 @@ test_priority_donate_lower (void)
   
   printf ("(priority-donate-lower) Lowering base priority...\n");
 
-     printf("%d\n", thread_current()->base_priorities_count);
-
-
   thread_set_priority (PRI_DEFAULT - 10);
+
   printf ("(priority-donate-lower) Main thread should have priority %d.  Actual priority: %d.\n",
        PRI_DEFAULT + 10, thread_get_priority ());
-  
+
   lock_release (&lock);
+  
   printf ("(priority-donate-lower) acquire must already have finished.\n");
-  printf ("(priority-donate-lower) Main thread should have priority %d.  Actual priority: %d.\n",
+
+  
+  printf ("(priority-donate-lower) Main thread should have priority %d.  Actual priority: %d.\n", 
        PRI_DEFAULT - 10, thread_get_priority ());
 }
 

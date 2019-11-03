@@ -83,13 +83,12 @@ typedef int tid_t;
 struct thread
 {
   //my
-  int time;
+  int wake_time;
 
-  int base_priorities_count;
-  int base_priority[10];
-  
-  int locks_count;
-  struct lock* lock[10];
+  int base_priority;
+
+  struct lock* blocked_by;
+  struct semaphore* blocked_by_sema;
   //end my
 
   /* Owned by thread.c. */
@@ -157,6 +156,5 @@ void SHOW_ALL_LIST (void);
 void SHOW_READY_LIST (void);
 
 struct lock* prog_lock[10];
-static int lock_count = 0;
-
+int prog_lock_count;
 //END_MY

@@ -30,7 +30,7 @@
 #include "threads/synch.h"
 #include "threads/thread.h"
 
-#define NESTING_DEPTH 8
+#define NESTING_DEPTH 8     //was 8
 
 struct lock_pair
   {
@@ -67,6 +67,7 @@ test_priority_donate_chain (void)
       snprintf (name, sizeof name, "thread %d", i);
       thread_priority = PRI_MIN + i * 3;
       lock_pairs[i].first = i < NESTING_DEPTH - 1 ? locks + i: NULL;
+         //lock_pairs[i].first = i < NESTING_DEPTH - 1 ? &locks[i]: NULL;
       lock_pairs[i].second = locks + i - 1;
 
       thread_create (name, thread_priority, donor_thread_func, lock_pairs + i);
@@ -78,6 +79,8 @@ test_priority_donate_chain (void)
     }
 
   lock_release (&locks[0]);
+
+
   msg ("%s finishing with priority %d.", thread_name (),
                                          thread_get_priority ());
 }
@@ -91,6 +94,7 @@ donor_thread_func (void *locks_)
     lock_acquire (locks->first);
 
   lock_acquire (locks->second);
+
   msg ("%s got lock", thread_name ());
 
   lock_release (locks->second);
