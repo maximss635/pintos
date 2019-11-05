@@ -530,45 +530,23 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  //printf("base: %d, usual: %d\n", thread_current()->base_priority, thread_current()->priority);
-
-  if (thread_current()->base_priority != -1)
+  struct thread* cur = thread_current();
+  if (cur->base_priority != -1)
   {
-    //printf("%s base priority: %d -> %d\n", thread_name(), thread_current()->base_priority[0], new_priority);
-    thread_current ()->base_priority = new_priority;
+    cur->base_priority = new_priority;
     return;
   }
-  else
-  {
-    //printf("%s usual priority: %d -> %d\n", thread_get_priority(), new_priority);
-    thread_current ()->priority = new_priority;
-  }
+  
+  cur->priority = new_priority;
 
-  //MY
-  //мы измменили приоритет последнего процесса в all list - у него новое место в этом листе
-  struct list_elem* p = all_list.tail.prev;
-  while(p != NULL && list_entry(p, struct thread, allelem)->priority < list_entry(p->prev, struct thread, allelem)->priority)
-  {
-    struct list_elem* a = p->prev;
-    
-    if (a == NULL || a->prev == NULL || p->next == NULL)
-      break;
-
-    struct list_elem *saved = a->prev;
-    a->prev->next = p;
-    a->prev = p;
-    a->next = p->next;
-
-    p->prev = saved;
-    p->next = a;
-    a->next->prev = a;
-  }
+  list_remove(&cur->allelem);
+  push_sorted(&all_list, list_entry(&cur->allelem, struct thread, allelem));
 
   if (!list_empty(&ready_list) && list_entry(ready_list.tail.prev, struct thread, elem)->priority > new_priority)
   {
     thread_yield();
   }
-  //ENDMY
+
 }
 
 /* Returns the current thread's priority. */
