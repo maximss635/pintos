@@ -73,13 +73,13 @@ sema_down (struct semaphore *sema)
   {
     //MY
     struct thread* cur = thread_current();
-    push_sorted(&sema->waiters, cur);
+    list_insert_ordered(&sema->waiters, &cur->elem, priority_compare_readyList, NULL);
     cur->blocked_by_sema = sema;
     //END_MY
+
     //было
     //list_push_back (&sema->waiters, &thread_current ()->elem);
 
-    //printf("sema block %s\n", thread_current()->name);
     thread_block ();
 
   }
@@ -123,6 +123,7 @@ sema_try_down (struct semaphore *sema)
 void
 sema_up (struct semaphore *sema) 
 {
+  
   sema->value++;
   enum intr_level old_level;
 
@@ -142,7 +143,7 @@ sema_up (struct semaphore *sema)
     }
     //ENDMY
   }
-  
+
   intr_set_level (old_level);
 }
 
@@ -252,14 +253,8 @@ lock_acquire (struct lock *lock)
     int p = thread_get_priority();
     struct lock* save_lock = lock;
 
-    int k = 1;
     while (p > lock->priority)      //было if
     {
-      //printf("%d\n", k++);
-      //printf("LA %s:\n", holder->name);
-      //printf("\tWas:    pri %d, base_pri %d\n", holder->priority, holder->base_priority);
-      
-
       lock->priority = p;
       if (holder->base_priority == -1)
         holder->base_priority = holder->priority;
@@ -278,15 +273,12 @@ lock_acquire (struct lock *lock)
         }
       }
         
-      //printf("\tBecome: pri %d, base_pri %d\n", holder->priority, holder->base_priority);
-
       if (!holder_is_blocked)
       {
         break;
       }
       else
       {
-        //printf("\t!!!!HOLDER IS BLOCKED!!!!\n");
         lock = which_lock;
         p = holder->priority;
         holder = lock->holder;
@@ -303,8 +295,7 @@ lock_acquire (struct lock *lock)
     if (next_priority != 0 && holder->priority > next_priority)
     {
       list_remove(&holder->elem);
-      struct thread* added = list_entry(&holder->elem, struct thread, elem);
-      push_sorted(&holder->blocked_by_sema->waiters, added);
+      list_insert_ordered(&holder->blocked_by_sema->waiters, &holder->elem, priority_compare_readyList, NULL);
     }
     //
   }
@@ -315,8 +306,6 @@ lock_acquire (struct lock *lock)
   sema_down (&lock->semaphore);
   struct thread* cur = thread_current();
   lock->holder = cur;
-
-
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -458,6 +447,16 @@ cond_init (struct condition *cond)
    interrupt handler.  This function may be called with
    interrupts disabled, but interrupts will be turned back on if
    we need to sleep. */
+
+bool
+priority_compare_for_sema (const struct list_elem* elem1, const struct list_elem* elem2, void *aux UNUSED)
+{
+  int p1 = list_entry(elem1, struct semaphore_elem, elem)->sema_priority;
+  int p2 = list_entry(elem2, struct semaphore_elem, elem)->sema_priority;
+
+  return p1 <= p2;  
+}
+
 void
 cond_wait (struct condition *cond, struct lock *lock) 
 {
@@ -472,28 +471,7 @@ cond_wait (struct condition *cond, struct lock *lock)
   
   //MY
   waiter.sema_priority = thread_current()->priority;
-
-  struct list* list = &cond->waiters;
-  struct list_elem* added = &waiter.elem;
-  
-  struct list_elem* p;
-  for (p = list->head.next; p != &list->tail; p = p->next)
-  {
-    struct semaphore_elem* i_sema = list_entry(p, struct semaphore_elem, elem);
-    if (i_sema->sema_priority > waiter.sema_priority)
-    {
-      break;
-    }
-  }
-
-  if (p == &list->tail)
-  {
-    list_push_back(list, added);
-  }
-  else
-  {
-    list_insert(p, added);
-  }
+  list_insert_ordered(&cond->waiters, &waiter.elem, priority_compare_for_sema, NULL);
   //END My
 
   //было:
@@ -523,9 +501,7 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
   {
     struct semaphore_elem* elem = list_entry (list_pop_back (&cond->waiters), struct semaphore_elem, elem);
     struct semaphore* sema = &elem->semaphore;
-    //printf("%d\n", elem->sema_priority);
     sema_up (sema);
-
   }
 }
 

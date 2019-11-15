@@ -30,3 +30,11 @@ void test_narrow_bridge(unsigned int num_vehicles_left, unsigned int num_vehicle
         unsigned int num_emergency_left, unsigned int num_emergency_right);
 
 #endif // __narrow_bridge_h
+
+//my
+struct semaphore sema;
+enum car_direction dir_of_last_car;
+
+int number_of_car;
+	 	
+//end my

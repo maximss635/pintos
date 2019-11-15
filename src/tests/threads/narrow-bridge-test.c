@@ -33,6 +33,55 @@ void one_vehicle(enum car_priority prio, enum car_direction dir);
 
 static unsigned int threads_count_on_start = 0;
 
+//my
+void
+print_info (unsigned int num_vehicles_left, unsigned int num_vehicles_right,
+        unsigned int num_emergency_left, unsigned int num_emergency_right)
+{
+    int i = 1, sum = 1;
+    SHOW_ALL_LIST();
+    printf("Norm: \n\t%d left  ", num_vehicles_left);
+    printf("(");
+    sum += num_vehicles_left;
+    while (i != sum)
+    {
+        printf("%d ", i);
+        i++;
+    }
+    printf(")");
+
+    printf("\n\t%d right ", num_vehicles_right);   
+    printf("(");
+    sum += num_vehicles_right;
+    while (i != sum)
+    {
+        printf("%d ", i);
+        i++;
+    }
+    printf(")");
+
+    printf("\nEmer: \n\t%d left  ", num_emergency_left);
+    printf("(");
+    sum += num_emergency_left;
+    while (i != sum)
+    {
+        printf("%d ", i);
+        i++;
+    }
+    printf(")");
+    
+    printf("\n\t%d right ", num_emergency_right);       
+    printf("(");
+    sum += num_emergency_right;
+    while (i != sum)
+    {
+        printf("%d ", i);
+        i++;
+    }
+    printf(")\n");   
+}
+//end my
+
 // Test entry point
 void test_narrow_bridge(unsigned int num_vehicles_left, unsigned int num_vehicles_right,
         unsigned int num_emergency_left, unsigned int num_emergency_right)
@@ -45,6 +94,10 @@ void test_narrow_bridge(unsigned int num_vehicles_left, unsigned int num_vehicle
     create_vehicles(num_vehicles_right, thread_normal_right);
     create_vehicles(num_emergency_left, thread_emergency_left);
     create_vehicles(num_emergency_right, thread_emergency_right);
+    
+    //my
+    print_info(num_vehicles_left, num_vehicles_right, num_emergency_left, num_emergency_right);
+    //end my
 
     wait_threads();
 }

@@ -55,3 +55,8 @@ void cond_broadcast (struct condition *, struct lock *);
 #define barrier() asm volatile ("" : : : "memory")
 
 #endif /* threads/synch.h */
+
+//my
+void add_lock(struct lock* lock);
+bool lock_saved(struct lock* lock);
+//end my

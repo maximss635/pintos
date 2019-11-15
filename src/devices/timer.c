@@ -30,6 +30,11 @@ static void busy_wait (int64_t loops);
 static void real_time_sleep (int64_t num, int32_t denom);
 static void real_time_delay (int64_t num, int32_t denom);
 
+//my
+struct thread* SLEEP_MASSIVE[10];
+int SLEEP_MASSIVE_SIZE = 0;
+//end my
+
 /* Sets up the timer to interrupt TIMER_FREQ times per second,
    and registers the corresponding interrupt. */
 void
@@ -86,53 +91,30 @@ timer_elapsed (int64_t then)
 
 /* Sleeps for approximately TICKS timer ticks.  Interrupts must
    be turned on. */
-#include <stdlib.h>
 
-struct thread** SLEEP_MASSIVE = NULL;
-int SLEEP_MASSIVE_SIZE = 0;
-
-struct thread** my_realloc(struct thread** old_massive, int new_size)
-        //Не доделанная, работает только в том случае, когда мы увеличиваем массив на единицу
-{
-  struct thread** tmp = (struct thread**)malloc((new_size - 1) * sizeof(struct thread*));
-  for (int i = 0; i < new_size - 1; ++i)
-  {
-    tmp[i] = old_massive[i];
-  }
-  free(old_massive);
-  old_massive = NULL;
-  old_massive = (struct thread**)malloc(new_size * sizeof(struct thread*));
-  for (int i = 0; i < new_size - 1; ++i)
-  {
-    old_massive[i] = tmp[i];
-  }
-  free(tmp);
-  tmp = NULL;
-  return old_massive;
-}
-
+//my
 void ADD_TO_MASSIVE (struct thread* NEW_THREAD)
 {
-  if (SLEEP_MASSIVE_SIZE == 0)
+  int i;
+  for (i = 0; i < SLEEP_MASSIVE_SIZE; ++i)
   {
-    SLEEP_MASSIVE_SIZE++;
-    SLEEP_MASSIVE = (struct thread**)malloc(sizeof(struct thread*));
-    *SLEEP_MASSIVE = NEW_THREAD;
-  }
-  else
-  {
-    SLEEP_MASSIVE_SIZE++;
-    SLEEP_MASSIVE = my_realloc(SLEEP_MASSIVE, SLEEP_MASSIVE_SIZE);
-
-    int i = SLEEP_MASSIVE_SIZE - 2;
-    while (i >= 0 && SLEEP_MASSIVE[i]->wake_time < NEW_THREAD->wake_time)
+    if (SLEEP_MASSIVE[i]->wake_time < NEW_THREAD->wake_time)
     {
-      SLEEP_MASSIVE[i + 1] = SLEEP_MASSIVE[i];
-      i--;
+      break;
     }
-    SLEEP_MASSIVE[i + 1] = NEW_THREAD;
   }
+
+  for (int j = SLEEP_MASSIVE_SIZE; j > i; --j)
+  {
+    SLEEP_MASSIVE[j] = SLEEP_MASSIVE[j - 1];
+  }
+
+  SLEEP_MASSIVE[i] = NEW_THREAD;
+  SLEEP_MASSIVE_SIZE++;
 }
+
+
+//end my
 
 void
 timer_sleep (int64_t ticks)
@@ -143,14 +125,11 @@ timer_sleep (int64_t ticks)
   {
     int64_t start = timer_ticks ();
     enum intr_level old_level = intr_disable();
-    struct thread* NEW_THREAD = thread_current ();
+    struct thread* cur = thread_current ();
 
-    NEW_THREAD->wake_time = ticks + start;
-    //printf ("ADDED THREAD: {name: \"%s\", wake_up_time: %d, sleep_time: %d}\n",
-      //NEW_THREAD->name, NEW_THREAD->time, ticks);
-    
+    cur->wake_time = ticks + start;
   
-    ADD_TO_MASSIVE (NEW_THREAD);
+    ADD_TO_MASSIVE (cur);
 
     thread_block();
     
@@ -241,8 +220,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
   {
     /*printf ("\nDELETED: {name: \"%s\", wake_up_time: %d}\n",
       SLEEP_MASSIVE[SLEEP_MASSIVE_SIZE-1]->name,
-      SLEEP_MASSIVE[SLEEP_MASSIVE_SIZE-1]->time,
-      SLEEP_MASSIVE[SLEEP_MASSIVE_SIZE-1]->status);*/
+      SLEEP_MASSIVE[SLEEP_MASSIVE_SIZE-1]->wake_time);*/
 
 
     thread_unblock (SLEEP_MASSIVE[SLEEP_MASSIVE_SIZE - 1]);

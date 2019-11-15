@@ -151,10 +151,22 @@ int thread_get_load_avg (void);
 
 
 //MY
-void push_sorted(struct list* list, struct thread* t);
+bool
+priority_compare_allList(const struct list_elem* elem1, const struct list_elem* elem2, void* aux UNUSED);
+
+bool
+priority_compare_readyList(const struct list_elem* elem1, const struct list_elem* elem2, void* aux UNUSED);
+
+bool
+priority_compare_for_sema (const struct list_elem* elem1, const struct list_elem* elem2, void *aux UNUSED);   //synch.c
+
 void SHOW_ALL_LIST (void);
 void SHOW_READY_LIST (void);
 
 struct lock* prog_lock[10];
 int prog_lock_count;
+
+void ADD_TO_MASSIVE (struct thread* NEW_THREAD);  //timer.c
+
+
 //END_MY

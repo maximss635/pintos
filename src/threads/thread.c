@@ -48,7 +48,7 @@ static struct lock tid_lock;
 void SHOW_ALL_LIST ()
 {
   printf("ALL_LIST: ");
-  for (struct list_elem* p = (all_list.head.next); p != &(all_list.tail); p = p->next)
+  for (struct list_elem* p = list_begin(&all_list); p != list_end(&all_list); p = list_next(p))
   {
     struct thread* thread = list_entry(p, struct thread, allelem);
     printf("\"%s\"(%d) ", thread->name, thread->priority);
@@ -59,12 +59,28 @@ void SHOW_ALL_LIST ()
 void SHOW_READY_LIST ()
 {
   printf("READY LIST: ");
-  for (struct list_elem* p = ready_list.head.next; p != &(ready_list.tail); p = p->next)
+  for (struct list_elem* p = list_begin(&ready_list); p != list_end(&ready_list); p = list_next(p))
   {
     struct thread* thread = list_entry(p, struct thread, elem);
     printf("\"%s\"(%d) ", thread->name, thread->priority);
   }  
   printf("\n");
+}
+
+bool
+priority_compare_allList(const struct list_elem* elem1, const struct list_elem* elem2, void* aux UNUSED)
+{
+  int p1 = list_entry(elem1, struct thread, allelem)->priority;
+  int p2 = list_entry(elem2, struct thread, allelem)->priority;
+  return p1 <= p2;
+}
+
+bool
+priority_compare_readyList(const struct list_elem* elem1, const struct list_elem* elem2, void* aux UNUSED)
+{
+  int p1 = list_entry(elem1, struct thread, elem)->priority;
+  int p2 = list_entry(elem2, struct thread, elem)->priority;
+  return p1 <= p2;
 }
 //end of my func
 
@@ -359,21 +375,11 @@ thread_create (const char *name, int priority,
 void
 thread_block (void) 
 {
-  //printf("Before blocking: \n");
-  //SHOW_READY_LIST();
-
-  //однажды когда раскомментировал строчку ниже я вылетал из-за asserta
-  //printf("block: %s\n", running_thread()->name);
   ASSERT (!intr_context ());
   ASSERT (intr_get_level () == INTR_OFF);
 
   thread_current ()->status = THREAD_BLOCKED;
   schedule ();
-
-
-
-  //printf("After blocking: \n");
-  //SHOW_READY_LIST();
 }
 
 /* Transitions a blocked thread T to the ready-to-run state.
@@ -389,8 +395,6 @@ thread_block (void)
 void
 thread_unblock (struct thread *t) 
 {
-  //printf("\nunblock: %s\n", t->name);
-
   enum intr_level old_level;
 
   ASSERT (is_thread (t));
@@ -399,22 +403,16 @@ thread_unblock (struct thread *t)
   ASSERT (t->status == THREAD_BLOCKED);
 
   //MY
-  if (strncmp(t->name, "main", 4))
-  { 
-    push_sorted (&ready_list, t);
-  }
-  else
-  {
-    list_push_front (&ready_list, &t->elem);
-  }
+  list_insert_ordered(&ready_list, &t->elem, priority_compare_readyList, NULL);
   //ENDMY
+
   //было:
   //list_push_back (&ready_list, &t->elem);
   
-  //SHOW_READY_LIST();
 
   t->status = THREAD_READY;
   intr_set_level (old_level);
+  
 }
 
 /* Returns the name of the running thread. */
@@ -481,9 +479,6 @@ thread_exit (void)
 void
 thread_yield (void) 
 {
-  //printf("TY\n");
-  //SHOW_READY_LIST();
-
   struct thread *cur = thread_current ();
   enum intr_level old_level;
   
@@ -491,22 +486,16 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    push_sorted (&ready_list, cur);         //тут раньше было list_push_back();
-
-  //SHOW_READY_LIST();
-  
-  
+  {
+    list_insert_ordered(&ready_list, &cur->elem, priority_compare_readyList, NULL);
+    //было list_push_back();
+  }
+ 
   cur->status = THREAD_READY;
-
   
   schedule ();
 
   intr_set_level (old_level);
-
-  //SHOW_READY_LIST();
-  //printf("now cur: %s\n", thread_current()->name);
-  //printf("...........\n\n");
-
 }
 
 /* Invoke function 'func' on all threads, passing along 'aux'.
@@ -537,11 +526,14 @@ thread_set_priority (int new_priority)
     return;
   }
   
+  //printf("%s: %d->%d\n", thread_name(), cur->priority, new_priority);
   cur->priority = new_priority;
 
+  //меняем позицию в all_list
   list_remove(&cur->allelem);
-  push_sorted(&all_list, list_entry(&cur->allelem, struct thread, allelem));
-
+  list_insert_ordered(&all_list, &cur->allelem, priority_compare_allList, NULL);
+  //
+  
   if (!list_empty(&ready_list) && list_entry(ready_list.tail.prev, struct thread, elem)->priority > new_priority)
   {
     thread_yield();
@@ -658,42 +650,6 @@ is_thread (struct thread *t)
   return t != NULL && t->magic == THREAD_MAGIC;
 }
 
-void push_sorted(struct list* list, struct thread* t)
-{
-
-  struct list_elem* p;
-  struct thread* process;
-  for (p = (list->head.next); p != &list->tail; p = p->next)
-  {
-    if (list == &all_list)
-      process = list_entry(p, struct thread, allelem);
-    else
-      process = list_entry(p, struct thread, elem);
-    
-    if (t->priority <= process->priority)
-    {
-      break;
-    }
-  }
- 
-  struct list_elem* added_elem;
-  if (list == &all_list)
-  {
-    added_elem = &t->allelem;
-  }
-  else
-    added_elem = &t->elem;
-  
-  if (p == NULL)
-  {
-    list_push_back (list, added_elem);
-  }
-  else
-  {
-    list_insert(p, added_elem);
-  }
-}
-
 /* Does basic initialization of T as a blocked thread named
    NAME. */
 
@@ -720,14 +676,11 @@ init_thread (struct thread *t, const char *name, int priority)
   
   
   //MY
-  push_sorted (&all_list, t);
+  list_insert_ordered(&all_list, &t->allelem, priority_compare_allList, NULL);
   //END_MY
+
   //было тут:
   //list_push_back (&all_list, &t->allelem);
-  
-
-  //SHOW_ALL_LIST();
-  //printf("cur: %s (%d)\n", thread_current()->name, running_thread()->priority);
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
