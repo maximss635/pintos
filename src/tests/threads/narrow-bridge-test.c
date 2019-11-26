@@ -34,12 +34,12 @@ void one_vehicle(enum car_priority prio, enum car_direction dir);
 static unsigned int threads_count_on_start = 0;
 
 //my
-void
+static void
 print_info (unsigned int num_vehicles_left, unsigned int num_vehicles_right,
         unsigned int num_emergency_left, unsigned int num_emergency_right)
 {
     int i = 1, sum = 1;
-    SHOW_ALL_LIST();
+    //SHOW_ALL_LIST();
     printf("Norm: \n\t%d left  ", num_vehicles_left);
     printf("(");
     sum += num_vehicles_left;
@@ -88,7 +88,7 @@ void test_narrow_bridge(unsigned int num_vehicles_left, unsigned int num_vehicle
 {
     threads_count_on_start = threads_count();
 
-    narrow_bridge_init();
+    narrow_bridge_init(num_emergency_left, num_emergency_right);
 
     create_vehicles(num_vehicles_left, thread_normal_left);
     create_vehicles(num_vehicles_right, thread_normal_right);
@@ -169,6 +169,13 @@ void one_vehicle(enum car_priority prio, enum car_direction dir)
                                                                 
 void cross_bridge(enum car_priority prio, enum car_direction dir)
 {
+    //my
+    static int64_t last_timer_ticks = 0;
+    if (timer_ticks() != last_timer_ticks)
+        printf("\n");
+    last_timer_ticks = timer_ticks();
+    //end my
+    
     msg("Vehicle: %4s, prio: %s, direct: %s, ticks=%4llu", 
           thread_current()->name, 
           prio == car_emergency ? "emer" : "norm",

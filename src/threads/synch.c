@@ -503,6 +503,7 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
     struct semaphore* sema = &elem->semaphore;
     sema_up (sema);
   }
+  //else printf("empty\n");
 }
 
 /* Wakes up all threads, if any, waiting on COND (protected by

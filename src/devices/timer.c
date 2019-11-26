@@ -95,6 +95,7 @@ timer_elapsed (int64_t then)
 //my
 void ADD_TO_MASSIVE (struct thread* NEW_THREAD)
 {
+  //printf("%s sleep\n", NEW_THREAD->name);
   int i;
   for (i = 0; i < SLEEP_MASSIVE_SIZE; ++i)
   {
@@ -218,11 +219,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
 
   while ((SLEEP_MASSIVE_SIZE > 0) && (SLEEP_MASSIVE[SLEEP_MASSIVE_SIZE-1]->wake_time <= ticks))
   {
-    /*printf ("\nDELETED: {name: \"%s\", wake_up_time: %d}\n",
-      SLEEP_MASSIVE[SLEEP_MASSIVE_SIZE-1]->name,
-      SLEEP_MASSIVE[SLEEP_MASSIVE_SIZE-1]->wake_time);*/
-
-
+    //printf("wake up %s\n", SLEEP_MASSIVE[SLEEP_MASSIVE_SIZE - 1]->name);
     thread_unblock (SLEEP_MASSIVE[SLEEP_MASSIVE_SIZE - 1]);
     SLEEP_MASSIVE_SIZE--;
   }

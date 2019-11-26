@@ -18,7 +18,7 @@ enum car_direction
 };
 
 // !! Implement this functions:
-void narrow_bridge_init(void);
+void narrow_bridge_init(unsigned int num_emergency_left, unsigned int num_emergency_right);
 void arrive_bridge(enum car_priority prio, enum car_direction dir);
 void exit_bridge(enum car_priority prio, enum car_direction dir);
 
@@ -32,9 +32,33 @@ void test_narrow_bridge(unsigned int num_vehicles_left, unsigned int num_vehicle
 #endif // __narrow_bridge_h
 
 //my
-struct semaphore sema;
-enum car_direction dir_of_last_car;
+struct car {
+   enum car_priority prio;
+   enum car_direction dir;
+};
 
-int number_of_car;
-	 	
+struct line {
+   struct condition cars;
+   unsigned int cars_num;
+};
+
+struct car car_init(enum car_priority prio, enum car_direction dir);
+void line_init(struct line* car_line);
+
+unsigned int num_vehicles_left;
+unsigned int num_vehicles_right;
+unsigned int num_emergency_left;
+unsigned int num_emergency_right;
+
+unsigned int cars_on_the_road;
+
+unsigned int emer_passed;
+unsigned int emer_passed_left;
+unsigned int emer_passed_right;
+
+enum car_direction current_direction;
+
+struct lock lock;
+struct line car_lines[2][2];
+
 //end my
