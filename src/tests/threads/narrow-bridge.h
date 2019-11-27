@@ -17,36 +17,30 @@ enum car_direction
    dir_right = 1        // Going from right -> left
 };
 
-// !! Implement this functions:
-void narrow_bridge_init(unsigned int num_emergency_left, unsigned int num_emergency_right);
-void arrive_bridge(enum car_priority prio, enum car_direction dir);
-void exit_bridge(enum car_priority prio, enum car_direction dir);
-
-// Called when car going
-void cross_bridge(enum car_priority prio, enum car_direction dir);
-
-// Test entry point
-void test_narrow_bridge(unsigned int num_vehicles_left, unsigned int num_vehicles_right,
-        unsigned int num_emergency_left, unsigned int num_emergency_right);
-
-#endif // __narrow_bridge_h
-
 //my
 struct car {
    enum car_priority prio;
    enum car_direction dir;
 };
+//end my
 
+void narrow_bridge_init(unsigned int num_emergency_left, unsigned int num_emergency_right);
+void arrive_bridge(struct car current_car);
+void exit_bridge(void);
+
+void cross_bridge(struct car car);
+
+void test_narrow_bridge(unsigned int num_vehicles_left, unsigned int num_vehicles_right,
+        unsigned int num_emergency_left, unsigned int num_emergency_right);
+
+//my
 struct line {
    struct condition cars;
    unsigned int cars_num;
 };
 
-struct car car_init(enum car_priority prio, enum car_direction dir);
 void line_init(struct line* car_line);
 
-unsigned int num_vehicles_left;
-unsigned int num_vehicles_right;
 unsigned int num_emergency_left;
 unsigned int num_emergency_right;
 
@@ -62,3 +56,6 @@ struct lock lock;
 struct line car_lines[2][2];
 
 //end my
+
+
+#endif // __narrow_bridge_h

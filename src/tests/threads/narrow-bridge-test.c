@@ -11,29 +11,28 @@
 #include <list.h>
 #include "narrow-bridge.h"
 
-// Creates threads, one thread for one car. Entry point is func
-void create_vehicles(unsigned int count, thread_func* func);
 
-// Vehicle threads entry points
+void create_vehicles(unsigned int count, thread_func* func);
 void thread_normal_left(void* arg UNUSED);
 void thread_normal_right(void* arg UNUSED);
 void thread_emergency_left(void* arg UNUSED);
 void thread_emergency_right(void* arg UNUSED);
-
-// Calculates current number of threads
 unsigned int threads_count(void);
-// Helper function for threads_count
 void threads_counter(struct thread *t UNUSED, void *aux);
-
-// Wait for all vehicles threads will be terminated
 void wait_threads(void);
-
-// Vehicle entry point
-void one_vehicle(enum car_priority prio, enum car_direction dir);
+void one_vehicle(struct car car);
 
 static unsigned int threads_count_on_start = 0;
 
 //my
+static struct car 
+car(enum car_priority prio, enum car_direction dir)
+{
+	struct car car = {prio, dir};
+
+	return car;
+}
+
 static void
 print_info (unsigned int num_vehicles_left, unsigned int num_vehicles_right,
         unsigned int num_emergency_left, unsigned int num_emergency_right)
@@ -82,7 +81,6 @@ print_info (unsigned int num_vehicles_left, unsigned int num_vehicles_right,
 }
 //end my
 
-// Test entry point
 void test_narrow_bridge(unsigned int num_vehicles_left, unsigned int num_vehicles_right,
         unsigned int num_emergency_left, unsigned int num_emergency_right)
 {
@@ -99,7 +97,13 @@ void test_narrow_bridge(unsigned int num_vehicles_left, unsigned int num_vehicle
     print_info(num_vehicles_left, num_vehicles_right, num_emergency_left, num_emergency_right);
     //end my
 
+    int start_time_for_cars = timer_ticks();
     wait_threads();
+
+    //my
+    printf("\nTime for cars: %d, ", timer_elapsed(start_time_for_cars));
+    printf("number of cars: %d\n\n", num_vehicles_left + num_vehicles_right + num_emergency_left + num_emergency_right);
+    //end my
 }
 
 void threads_counter(struct thread *t UNUSED, void *aux)
@@ -142,32 +146,32 @@ void create_vehicles(unsigned int count, thread_func* func)
 
 void thread_normal_left(void* arg UNUSED)
 {
-    one_vehicle(car_normal, dir_left);
+    one_vehicle(car(car_normal, dir_left));
 }
 
 void thread_normal_right(void* arg UNUSED)
 {
-    one_vehicle(car_normal, dir_right);
+    one_vehicle(car(car_normal, dir_right));
 }
 
 void thread_emergency_left(void* arg UNUSED)
 {
-    one_vehicle(car_emergency, dir_left);
+    one_vehicle(car(car_emergency, dir_left));
 }
 
 void thread_emergency_right(void* arg UNUSED)
 {
-    one_vehicle(car_emergency, dir_right);
+    one_vehicle(car(car_emergency, dir_right));
 }
 
-void one_vehicle(enum car_priority prio, enum car_direction dir)
+void one_vehicle(struct car car)
 {
-    arrive_bridge(prio, dir);
-    cross_bridge(prio, dir);
-    exit_bridge(prio, dir);
+    arrive_bridge(car);
+    cross_bridge(car);
+    exit_bridge();
 }
                                                                 
-void cross_bridge(enum car_priority prio, enum car_direction dir)
+void cross_bridge(struct car car)
 {
     //my
     static int64_t last_timer_ticks = 0;
@@ -178,8 +182,8 @@ void cross_bridge(enum car_priority prio, enum car_direction dir)
     
     msg("Vehicle: %4s, prio: %s, direct: %s, ticks=%4llu", 
           thread_current()->name, 
-          prio == car_emergency ? "emer" : "norm",
-          dir == dir_left ? "l -> r" : "l <- r",
+          car.prio == car_emergency ? "emer" : "norm",
+          car.dir == dir_left ? "l -> r" : "l <- r",
           (unsigned long long) timer_ticks ());
     timer_sleep(10);
 }

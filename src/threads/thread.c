@@ -650,7 +650,7 @@ is_thread (struct thread *t)
   return t != NULL && t->magic == THREAD_MAGIC;
 }
 
-/* Does basic initialization of T as a blocked thread named
+/* Does basic initialthreization of T as a blocked thread named
    NAME. */
 
 static void
@@ -767,9 +767,9 @@ thread_schedule_tail (struct thread *prev)
      thread.  This must happen late so that thread_exit() doesn't
      pull out the rug under itself.  (We don't free
      initial_thread because its memory was not obtained via
-     palloc().) */
+     palloc().) 
 
-  /* Если поток, с которого мы переключились, умирает, уничтожьте его структуру
+     Если поток, с которого мы переключились, умирает, уничтожьте его структуру
      нить. Это должно произойти поздно, чтобы thread_exit () не
      вытащите коврик под себя. (Мы не свободны
      initial_thread, потому что его память не была получена через
@@ -795,8 +795,6 @@ thread_schedule_tail (struct thread *prev)
 
    Не безопасно вызывать printf (), пока thread_schedule_tail ()
    завершено.*/
-
-
 
 static void
 schedule (void) 

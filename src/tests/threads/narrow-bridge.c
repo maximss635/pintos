@@ -11,16 +11,7 @@
 //my
 #include "devices/timer.h"
 #define MAX_VEHICLE 2
-//end my
 
-struct car car_init(enum car_priority prio, enum car_direction dir)
-{
-	struct car car;
-	car.prio = prio;
-	car.dir = dir;
-
-	return car;
-}
 
 void line_init(struct line* car_line)
 {
@@ -33,7 +24,7 @@ static bool empty_line(struct line* line)
 	return line->cars_num == 0;
 }
 
-static bool CanCarGo(struct car car)			//???
+static bool CanCarGo(struct car car)			//maybe change
 {
     if (cars_on_the_road == 0) 
 	{
@@ -68,6 +59,8 @@ static void get_in_line(struct car* car)
 	line->cars_num++;
 	cond_wait(&line->cars, &lock);
 }
+// end my
+
 
 void narrow_bridge_init(unsigned int _num_emergency_left, unsigned int _num_emergency_right)
 {
@@ -85,56 +78,63 @@ void narrow_bridge_init(unsigned int _num_emergency_left, unsigned int _num_emer
 		line_init(&car_lines[i / 2][i % 2]);
 }
 
-void arrive_bridge(enum car_priority prio, enum car_direction dir)
+void arrive_bridge(struct car current_car)
 {
 	lock_acquire(&lock);
 
-	struct car currnet_car = car_init(prio, dir);
-
-	while(!CanCarGo(currnet_car))
+	while(!CanCarGo(current_car))
 	{
-		//printf("%s cannt go\n", thread_name());
-		get_in_line(&currnet_car);
+		get_in_line(&current_car);
 	}	//wait
 
 	//went on the road
 	cars_on_the_road++;
-	current_direction = currnet_car.dir;
-	if (currnet_car.prio == car_emergency)
+	current_direction = current_car.dir;
+	if (current_car.prio == car_emergency)
 	{
 		emer_passed++;
-		dir == dir_left ? emer_passed_left++ : emer_passed_right++;
+		current_car.dir == dir_left ? emer_passed_left++ : emer_passed_right++;
+	}
 
-		if (cars_on_the_road == 1)
-			cond_signal(&car_lines[0][dir].cars, &lock);
+	if (cars_on_the_road == 1)
+	{
+		if (!empty_line(&car_lines[1][current_direction]))
+		{
+			car_lines[1][current_direction].cars_num--;
+			cond_signal(&car_lines[1][current_direction].cars, &lock);
+		}
+		else if (!empty_line(&car_lines[0][current_direction]))
+		{
+			car_lines[0][current_direction].cars_num--;
+			cond_signal(&car_lines[0][current_direction].cars, &lock);
+		}
 	}
 
 	lock_release(&lock);
 }
 
-void exit_bridge(enum car_priority prio UNUSED, enum car_direction dir)
+void exit_bridge()
 {
 	lock_acquire(&lock);
 
 	cars_on_the_road--;
 
-	struct line* line;
-
-	if (!empty_line(&car_lines[1][1 - dir]))						//	(1 - dir) means the opposite dirrection
-		line = &car_lines[1][1 - dir];
-
-	else if (!empty_line(&car_lines[1][dir]))
-		line = &car_lines[1][dir];
+	if (cars_on_the_road == 0)
+	{
+		struct line* line;
 	
-	else if (!empty_line(&car_lines[0][1 - dir]))
-		line = &car_lines[0][1 - dir];
-	
-	else
-		line = &car_lines[0][dir];
-	
+		if (!empty_line(&car_lines[1][1 - current_direction]))			//	(1 - current_direction) means the opposite dirrection		
+			line = &car_lines[1][1 - current_direction];
+		else if (!empty_line(&car_lines[1][current_direction]))
+			line = &car_lines[1][current_direction];
+		else if (!empty_line(&car_lines[0][1 - current_direction]))
+			line = &car_lines[0][1 - current_direction];
+		else
+			line = &car_lines[0][current_direction];
 
-	line->cars_num--;
-	cond_signal(&line->cars, &lock);
+		line->cars_num--;
+		cond_signal(&line->cars, &lock);
+	}
 
 	lock_release(&lock);
 }
